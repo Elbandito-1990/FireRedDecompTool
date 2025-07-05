@@ -2,7 +2,6 @@
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QFormLayout>
 #include <QGridLayout>
 #include <QComboBox>
 #include <QSpinBox>
@@ -37,23 +36,44 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
         s->setReadOnly(true);
         return s;
     };
-    hpSpin = makeStatSpin(); atkSpin = makeStatSpin(); defSpin = makeStatSpin();
-    spaSpin = makeStatSpin(); spdSpin = makeStatSpin(); speSpin = makeStatSpin();
+    hpSpin  = makeStatSpin();
+    atkSpin = makeStatSpin();
+    defSpin = makeStatSpin();
+    spaSpin = makeStatSpin();
+    spdSpin = makeStatSpin();
+    speSpin = makeStatSpin();
 
-    type1Combo = new QComboBox(this); type2Combo = new QComboBox(this);
-    ability1Combo = new QComboBox(this); ability2Combo = new QComboBox(this); abilityHiddenCombo = new QComboBox(this);
-    growthCombo = new QComboBox(this); egg1Combo = new QComboBox(this); egg2Combo = new QComboBox(this);
+    type1Combo         = new QComboBox(this);
+    type2Combo         = new QComboBox(this);
+    ability1Combo      = new QComboBox(this);
+    ability2Combo      = new QComboBox(this);
+    abilityHiddenCombo = new QComboBox(this);
+    growthCombo        = new QComboBox(this);
+    egg1Combo          = new QComboBox(this);
+    egg2Combo          = new QComboBox(this);
 
-    for (const QString &p : typeMap.values()) { type1Combo->addItem(p); type2Combo->addItem(p); }
-    for (const QString &p : abilityMap.values()) {
-        ability1Combo->addItem(p); ability2Combo->addItem(p); abilityHiddenCombo->addItem(p);
+    for (const QString &p : typeMap.values()) {
+        type1Combo->addItem(p);
+        type2Combo->addItem(p);
     }
-    for (const QString &p : growthMap.values()) growthCombo->addItem(p);
-    for (const QString &p : eggMap.values()) { egg1Combo->addItem(p); egg2Combo->addItem(p); }
-
-    for (auto *w : {type1Combo, type2Combo, ability1Combo, ability2Combo,
-                    abilityHiddenCombo, growthCombo, egg1Combo, egg2Combo})
+    for (const QString &p : abilityMap.values()) {
+        ability1Combo->addItem(p);
+        ability2Combo->addItem(p);
+        abilityHiddenCombo->addItem(p);
+    }
+    for (const QString &p : growthMap.values()) {
+        growthCombo->addItem(p);
+    }
+    for (const QString &p : eggMap.values()) {
+        egg1Combo->addItem(p);
+        egg2Combo->addItem(p);
+    }
+    for (auto *w : { type1Combo, type2Combo,
+                     ability1Combo, ability2Combo, abilityHiddenCombo,
+                     growthCombo, egg1Combo, egg2Combo })
+    {
         w->setEnabled(false);
+    }
 
     genderSlider = new QSlider(Qt::Horizontal, this);
     genderSlider->setRange(0, 100);
@@ -71,13 +91,23 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     catchRateSpin  = new QSpinBox(this);
     expYieldSpin   = new QSpinBox(this);
     friendshipSpin = new QSpinBox(this);
-    for (auto *s : {catchRateSpin, expYieldSpin, friendshipSpin}) {
+    for (auto *s : { catchRateSpin, expYieldSpin, friendshipSpin }) {
         s->setButtonSymbols(QAbstractSpinBox::NoButtons);
         s->setReadOnly(true);
     }
     catchRateSpin ->setRange(0, 255);
     expYieldSpin  ->setRange(0, 1000);
     friendshipSpin->setRange(0, 255);
+
+    eggCycleSpin = new QSpinBox(this);
+    eggCycleSpin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    eggCycleSpin->setReadOnly(true);
+    eggCycleSpin->setRange(0, 65535);
+
+    stepsField = new QLineEdit(this);
+    stepsField->setFixedWidth(60);
+    stepsField->setReadOnly(true);
+    stepsField->setEnabled(false);
 
     spriteLabelBack      = new QLabel(this);
     spriteLabelFront     = new QLabel(this);
@@ -98,145 +128,194 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
 
+    // ─── Left Column (Summary) ───────────────────────────────
     QWidget *leftWidget = new QWidget(this);
-    QVBoxLayout *main = new QVBoxLayout(leftWidget);
-    main->setContentsMargins(0, 0, 0, 0);
-    main->setSpacing(0);
-        // ─── Header ───
-    QHBoxLayout *header = new QHBoxLayout;
-    header->setContentsMargins(10, 10, 0, 0);
-    header->addWidget(speciesCombo);
-    header->addStretch();
-    main->addLayout(header);
+    QVBoxLayout *leftLayout = new QVBoxLayout(leftWidget);
+    leftLayout->setContentsMargins(10, 10, 10, 0);
 
-    // ─── Summary ───
-    QVBoxLayout *summary = new QVBoxLayout;
-    summary->setContentsMargins(10, 10, 10, 10);
+    // Species selector at the very top
+    leftLayout->addWidget(speciesCombo);
+    leftLayout->addSpacing(8);
 
-    QLabel *spritesHeader = new QLabel("Sprites", this);
-    spritesHeader->setAlignment(Qt::AlignCenter);
-    spritesHeader->setStyleSheet("font-weight: bold; font-size: 14px; padding-top: 10px;");
-    summary->addWidget(spritesHeader);
+    // Sprites
+    {
+        QLabel *h = new QLabel("Sprites", this);
+        h->setAlignment(Qt::AlignCenter);
+        h->setStyleSheet("font-weight:bold; font-size:14px; padding-top:10px;");
+        leftLayout->addWidget(h);
+        leftLayout->addSpacing(8);
 
-    // ─── Corrected Sprite Grid ───
-    QGridLayout *spriteGrid = new QGridLayout;
-    spriteGrid->setHorizontalSpacing(15);
-    spriteGrid->setVerticalSpacing(5);
+        QGridLayout *spriteGrid = new QGridLayout;
+        spriteGrid->setHorizontalSpacing(15);
+        spriteGrid->setVerticalSpacing(5);
+        spriteGrid->addWidget(spriteLabelIcon,      0, 0, Qt::AlignCenter);
+        spriteGrid->addWidget(spriteLabelFootprint, 0, 1, Qt::AlignCenter);
+        spriteGrid->addWidget(spriteLabelFront,     2, 0, Qt::AlignCenter);
+        spriteGrid->addWidget(spriteLabelBack,      2, 1, Qt::AlignCenter);
+        spriteGrid->addWidget(new QLabel("Icon", this),      1, 0, Qt::AlignCenter);
+        spriteGrid->addWidget(new QLabel("Footprint", this), 1, 1, Qt::AlignCenter);
+        spriteGrid->addWidget(new QLabel("Front", this),     3, 0, Qt::AlignCenter);
+        spriteGrid->addWidget(new QLabel("Back", this),      3, 1, Qt::AlignCenter);
 
-    // Row 0: Top sprites
-    spriteGrid->addWidget(spriteLabelIcon,      0, 0, Qt::AlignCenter);
-    spriteGrid->addWidget(spriteLabelFootprint, 0, 1, Qt::AlignCenter);
-    spriteGrid->addWidget(spriteLabelFront,     2, 0, Qt::AlignCenter);
-    spriteGrid->addWidget(spriteLabelBack,      2, 1, Qt::AlignCenter);
+        leftLayout->addLayout(spriteGrid);
+    }
 
-    // Row 1: Labels directly underneath each sprite
-    spriteGrid->addWidget(new QLabel("Icon", this),      1, 0, Qt::AlignCenter);
-    spriteGrid->addWidget(new QLabel("Footprint", this), 1, 1, Qt::AlignCenter);
-    spriteGrid->addWidget(new QLabel("Front", this),     3, 0, Qt::AlignCenter);
-    spriteGrid->addWidget(new QLabel("Back", this),      3, 1, Qt::AlignCenter);
+    // Base Stats
+    {
+        QLabel *h = new QLabel("Base Stats", this);
+        h->setAlignment(Qt::AlignCenter);
+        h->setStyleSheet("font-weight:bold; font-size:14px; padding-top:10px;");
+        leftLayout->addWidget(h);
+        leftLayout->addSpacing(8);
 
-    summary->addLayout(spriteGrid);
+        QGridLayout *statsGrid = new QGridLayout;
+        statsGrid->setHorizontalSpacing(20);
+        statsGrid->addWidget(new QLabel("HP", this),       0, 0);
+        statsGrid->addWidget(hpSpin,                       0, 1);
+        statsGrid->addWidget(new QLabel("Attack", this),   1, 0);
+        statsGrid->addWidget(atkSpin,                      1, 1);
+        statsGrid->addWidget(new QLabel("Defense", this),  2, 0);
+        statsGrid->addWidget(defSpin,                      2, 1);
+        statsGrid->addWidget(new QLabel("Sp. Atk", this),  0, 2);
+        statsGrid->addWidget(spaSpin,                      0, 3);
+        statsGrid->addWidget(new QLabel("Sp. Def", this),  1, 2);
+        statsGrid->addWidget(spdSpin,                      1, 3);
+        statsGrid->addWidget(new QLabel("Speed", this),    2, 2);
+        statsGrid->addWidget(speSpin,                      2, 3);
 
-    QLabel *statsHeader = new QLabel("Base Stats", this);
-    statsHeader->setAlignment(Qt::AlignCenter);
-    statsHeader->setStyleSheet("font-weight: bold; font-size: 14px; padding-top: 10px;");
-    summary->addWidget(statsHeader);
+        leftLayout->addLayout(statsGrid);
+    }
 
-    QGridLayout *stats = new QGridLayout;
-    stats->addWidget(new QLabel("HP", this),        0, 0); stats->addWidget(hpSpin , 0, 1);
-    stats->addWidget(new QLabel("Attack", this),    1, 0); stats->addWidget(atkSpin, 1, 1);
-    stats->addWidget(new QLabel("Defense", this),   2, 0); stats->addWidget(defSpin, 2, 1);
-    stats->addWidget(new QLabel("Sp. Atk", this),   0, 2); stats->addWidget(spaSpin, 0, 3);
-    stats->addWidget(new QLabel("Sp. Def", this),   1, 2); stats->addWidget(spdSpin, 1, 3);
-    stats->addWidget(new QLabel("Speed", this),     2, 2); stats->addWidget(speSpin, 2, 3);
-    stats->setHorizontalSpacing(20);
-    summary->addSpacing(8);
-    summary->addLayout(stats, Qt::AlignCenter);
+    // Typing
+    {
+        QLabel *h = new QLabel("Typing", this);
+        h->setAlignment(Qt::AlignCenter);
+        h->setStyleSheet("font-weight:bold; font-size:14px; padding-top:10px;");
+        leftLayout->addWidget(h);
+        leftLayout->addSpacing(8);
 
-    // ─── Typing ───
-    QLabel *typingHeader = new QLabel("Typing", this);
-    typingHeader->setAlignment(Qt::AlignCenter);
-    typingHeader->setStyleSheet("font-weight: bold; font-size: 14px; padding-top: 10px;");
-    summary->addWidget(typingHeader);
+        QHBoxLayout *typingRow = new QHBoxLayout;
+        typingRow->setAlignment(Qt::AlignCenter);
+        typingRow->setSpacing(10);
+        typingRow->addWidget(new QLabel("Type 1:", this));
+        typingRow->addWidget(type1Combo);
+        typingRow->addWidget(new QLabel("Type 2:", this));
+        typingRow->addWidget(type2Combo);
 
-    QHBoxLayout *typingRow = new QHBoxLayout;
-    typingRow->setAlignment(Qt::AlignCenter);
-    typingRow->setSpacing(10);
-    typingRow->addWidget(new QLabel("Type 1:", this));
-    typingRow->addWidget(type1Combo);
-    typingRow->addWidget(new QLabel("Type 2:", this));
-    typingRow->addWidget(type2Combo);
-    summary->addSpacing(12);
-    summary->addLayout(typingRow);
+        leftLayout->addLayout(typingRow);
+    }
 
-    // ─── Abilities ───
-    QLabel *abilityHeader = new QLabel("Abilities", this);
-    abilityHeader->setAlignment(Qt::AlignCenter);
-    abilityHeader->setStyleSheet("font-weight: bold; font-size: 14px; padding-top: 10px;");
-    summary->addSpacing(12);
-    summary->addWidget(abilityHeader);
+    // Abilities
+    {
+        QLabel *h = new QLabel("Abilities", this);
+        h->setAlignment(Qt::AlignCenter);
+        h->setStyleSheet("font-weight:bold; font-size:14px; padding-top:10px;");
+        leftLayout->addWidget(h);
+        leftLayout->addSpacing(8);
 
-    QHBoxLayout *abilityRow1 = new QHBoxLayout;
-    abilityRow1->setAlignment(Qt::AlignCenter);
-    abilityRow1->setSpacing(20);
-    abilityRow1->addWidget(new QLabel("Ability 1:", this));
-    abilityRow1->addWidget(ability1Combo);
-    abilityRow1->addWidget(new QLabel("Ability 2:", this));
-    abilityRow1->addWidget(ability2Combo);
+        QHBoxLayout *abRow1 = new QHBoxLayout;
+        abRow1->setAlignment(Qt::AlignCenter);
+        abRow1->setSpacing(20);
+        abRow1->addWidget(new QLabel("Ability 1:", this));
+        abRow1->addWidget(ability1Combo);
+        abRow1->addWidget(new QLabel("Ability 2:", this));
+        abRow1->addWidget(ability2Combo);
+        leftLayout->addLayout(abRow1);
 
-    QHBoxLayout *abilityRow2 = new QHBoxLayout;
-    abilityRow2->setAlignment(Qt::AlignCenter);
-    abilityRow2->setSpacing(20);
-    abilityRow2->addWidget(new QLabel("Hidden Ability:", this));
-    abilityRow2->addWidget(abilityHiddenCombo);
+        leftLayout->addSpacing(6);
 
-    summary->addLayout(abilityRow1);
-    summary->addSpacing(6);
-    summary->addLayout(abilityRow2);
+        QHBoxLayout *abRow2 = new QHBoxLayout;
+        abRow2->setAlignment(Qt::AlignCenter);
+        abRow2->setSpacing(20);
+        abRow2->addWidget(new QLabel("Hidden Ability:", this));
+        abRow2->addWidget(abilityHiddenCombo);
+        leftLayout->addLayout(abRow2);
+    }
 
-    // ─── Gender ───
-    QLabel *genderHeader = new QLabel("Gender", this);
-    genderHeader->setAlignment(Qt::AlignCenter);
-    genderHeader->setStyleSheet("font-weight: bold; font-size: 14px; padding-top: 10px;");
-    summary->addSpacing(12);
-    summary->addWidget(genderHeader);
+    // Push content up
+    leftLayout->addStretch();
 
-    QHBoxLayout *genderSliderRow = new QHBoxLayout;
-    genderSliderRow->setAlignment(Qt::AlignCenter);
-    genderSliderRow->setSpacing(10);
-    genderSliderRow->addWidget(new QLabel("♀ Female", this));
-    genderSliderRow->addWidget(genderSlider);
-    genderSliderRow->addWidget(new QLabel("♂ Male", this));
-    summary->addLayout(genderSliderRow);
+    // Add left widget to the root
+    root->addWidget(leftWidget, 2);
 
-    QHBoxLayout *genderPercentRow = new QHBoxLayout;
-    genderPercentRow->setAlignment(Qt::AlignCenter);
-    genderPercentRow->setSpacing(6);
-    genderPercentRow->addWidget(new QLabel("Gender Ratio:", this));
-    genderPercentRow->addWidget(genderDecimalField);
-    genderPercentRow->addWidget(new QLabel("% Female", this));
-    summary->addLayout(genderPercentRow);
-
-        main->addLayout(summary);
-
-    // ─── Detail Form ───
-    QFormLayout *details = new QFormLayout;
-    details->setLabelAlignment(Qt::AlignRight);
-    details->addRow("Growth Rate:",    growthCombo);
-    details->addRow("Egg Group 1:",    egg1Combo);
-    details->addRow("Egg Group 2:",    egg2Combo);
-    details->addRow("Catch Rate:",     catchRateSpin);
-    details->addRow("Base EXP:",       expYieldSpin);
-    details->addRow("Friendship:",     friendshipSpin);
-    main->addLayout(details);
-    main->addStretch();
-
-    root->addWidget(leftWidget, 0);
-
+    // ─── Right Column (Details) ────────────────────────────
     QWidget *rightWidget = new QWidget(this);
     QVBoxLayout *rightLayout = new QVBoxLayout(rightWidget);
-    rightLayout->setContentsMargins(0, 10, 10, 0);
-    rightLayout->addWidget(pathLabel, 0, Qt::AlignTop | Qt::AlignRight);
+    rightLayout->setContentsMargins(10, 10, 10, 0);
+
+    // Project path at very top
+    rightLayout->addWidget(pathLabel);
+    rightLayout->addSpacing(8);
+
+    // Gender
+    {
+        QLabel *h = new QLabel("Gender", this);
+        h->setAlignment(Qt::AlignCenter);
+        h->setStyleSheet("font-weight:bold; font-size:14px; padding-top:10px;");
+        rightLayout->addWidget(h);
+        rightLayout->addSpacing(8);
+
+        QHBoxLayout *r1 = new QHBoxLayout;
+        r1->setAlignment(Qt::AlignCenter);
+        r1->setSpacing(10);
+        r1->addWidget(new QLabel("♀ Female", this));
+        r1->addWidget(genderSlider);
+        r1->addWidget(new QLabel("♂ Male", this));
+        rightLayout->addLayout(r1);
+
+        QHBoxLayout *r2 = new QHBoxLayout;
+        r2->setAlignment(Qt::AlignCenter);
+        r2->setSpacing(6);
+        r2->addWidget(new QLabel("Gender Ratio:", this));
+        r2->addWidget(genderDecimalField);
+        r2->addWidget(new QLabel("% Female", this));
+        rightLayout->addLayout(r2);
+    }
+
+    // Breeding
+    {
+        QLabel *h = new QLabel("Breeding", this);
+        h->setAlignment(Qt::AlignCenter);
+        h->setStyleSheet("font-weight:bold; font-size:14px; padding-top:10px;");
+        rightLayout->addWidget(h);
+        rightLayout->addSpacing(8);
+
+        QGridLayout *g = new QGridLayout;
+        g->setHorizontalSpacing(20);
+        g->setVerticalSpacing(8);
+        g->addWidget(new QLabel("Egg Group 1:", this), 0, 0, Qt::AlignRight);
+        g->addWidget(egg1Combo,                        0, 1);
+        g->addWidget(new QLabel("Egg Group 2:", this), 0, 2, Qt::AlignRight);
+        g->addWidget(egg2Combo,                        0, 3);
+        g->addWidget(new QLabel("Egg Cycles:", this),  1, 0, Qt::AlignRight);
+        g->addWidget(eggCycleSpin,                     1, 1);
+        g->addWidget(new QLabel("Steps:", this),       1, 2, Qt::AlignRight);
+        g->addWidget(stepsField,                       1, 3);
+        rightLayout->addLayout(g);
+    }
+
+    // Misc
+    {
+        QLabel *h = new QLabel("Misc", this);
+        h->setAlignment(Qt::AlignCenter);
+        h->setStyleSheet("font-weight:bold; font-size:14px; padding-top:10px;");
+        rightLayout->addWidget(h);
+        rightLayout->addSpacing(8);
+
+        QGridLayout *m = new QGridLayout;
+        m->setHorizontalSpacing(20);
+        m->setVerticalSpacing(8);
+        m->addWidget(new QLabel("Growth Rate:", this),   0, 0, Qt::AlignRight);
+        m->addWidget(growthCombo,                        0, 1);
+        m->addWidget(new QLabel("Catch Rate:", this),    0, 2, Qt::AlignRight);
+        m->addWidget(catchRateSpin,                      0, 3);
+        m->addWidget(new QLabel("Base EXP:", this),      1, 0, Qt::AlignRight);
+        m->addWidget(expYieldSpin,                       1, 1);
+        m->addWidget(new QLabel("Friendship:", this),    1, 2, Qt::AlignRight);
+        m->addWidget(friendshipSpin,                     1, 3);
+        rightLayout->addLayout(m);
+    }
+
     rightLayout->addStretch();
 
     root->addWidget(rightWidget, 1);
@@ -275,36 +354,40 @@ void PokemonTab::loadSprites(const QString &speciesMacro)
 
     if (QFile::exists(frontPath)) {
         QPixmap pix(frontPath);
-        spriteLabelFront->setPixmap(pix.scaled(spriteLabelFront->size(),
-                                               Qt::KeepAspectRatio,
-                                               Qt::SmoothTransformation));
+        spriteLabelFront->setPixmap(pix.scaled(
+            spriteLabelFront->size(),
+            Qt::KeepAspectRatio,
+            Qt::SmoothTransformation));
     } else {
         spriteLabelFront->clear();
     }
 
     if (QFile::exists(backPath)) {
         QPixmap pix(backPath);
-        spriteLabelBack->setPixmap(pix.scaled(spriteLabelBack->size(),
-                                              Qt::KeepAspectRatio,
-                                              Qt::SmoothTransformation));
+        spriteLabelBack->setPixmap(pix.scaled(
+            spriteLabelBack->size(),
+            Qt::KeepAspectRatio,
+            Qt::SmoothTransformation));
     } else {
         spriteLabelBack->clear();
     }
 
     if (QFile::exists(iconPath)) {
         QPixmap pix(iconPath);
-        spriteLabelIcon->setPixmap(pix.scaled(spriteLabelIcon->size(),
-                                              Qt::KeepAspectRatio,
-                                              Qt::SmoothTransformation));
+        spriteLabelIcon->setPixmap(pix.scaled(
+            spriteLabelIcon->size(),
+            Qt::KeepAspectRatio,
+            Qt::SmoothTransformation));
     } else {
         spriteLabelIcon->clear();
     }
 
     if (QFile::exists(footprintPath)) {
         QPixmap pix(footprintPath);
-        spriteLabelFootprint->setPixmap(pix.scaled(spriteLabelFootprint->size(),
-                                                   Qt::KeepAspectRatio,
-                                                   Qt::SmoothTransformation));
+        spriteLabelFootprint->setPixmap(pix.scaled(
+            spriteLabelFootprint->size(),
+            Qt::KeepAspectRatio,
+            Qt::SmoothTransformation));
     } else {
         spriteLabelFootprint->clear();
     }
@@ -346,6 +429,9 @@ void PokemonTab::populateUI(const PokemonInfo &i)
     catchRateSpin ->setValue(i.catchRate);
     expYieldSpin  ->setValue(i.expYield);
     friendshipSpin->setValue(i.friendship);
+
+    eggCycleSpin->setValue(i.eggCycles);
+    stepsField->setText(QString::number(i.eggCycles * 256));
 }
 
 QString PokemonTab::prettify(const QString &raw)
@@ -357,7 +443,8 @@ QString PokemonTab::prettify(const QString &raw)
             c = c.toUpper();
             capNext = false;
         }
-        if (c == ' ') capNext = true;
+        if (c == ' ')
+            capNext = true;
     }
     return out;
 }
@@ -432,7 +519,10 @@ bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
 
     while (!in.atEnd()) {
         QString line = in.readLine();
-        if (!grab) { if (line.contains(header)) grab = true; continue; }
+        if (!grab) {
+            if (line.contains(header)) grab = true;
+            continue;
+        }
         block += line + '\n';
         if (line.contains('{')) ++braces;
         if (line.contains('}')) { --braces; if (!braces) break; }
@@ -442,7 +532,8 @@ bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
 
     auto getInt = [&](const QString &k, int &dst) {
         QRegularExpression rx("\\." + k + "\\s*=\\s*(\\d+)");
-        if (auto m = rx.match(block); m.hasMatch()) dst = m.captured(1).toInt();
+        if (auto m = rx.match(block); m.hasMatch())
+            dst = m.captured(1).toInt();
     };
 
     getInt("baseHP",       out.baseHP);
@@ -454,28 +545,54 @@ bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
     getInt("catchRate",    out.catchRate);
     getInt("expYield",     out.expYield);
     getInt("friendship",   out.friendship);
+    getInt("eggCycles",    out.eggCycles);
 
-    if (auto m = QRegularExpression(R"(.types\s*=\s*\{TYPE_([A-Z_]+)\s*,\s*TYPE_([A-Z_]+)\})").match(block); m.hasMatch()) {
-        out.type1 = typeMap.value("TYPE_" + m.captured(1), prettify(m.captured(1)));
-        out.type2 = typeMap.value("TYPE_" + m.captured(2), prettify(m.captured(2)));
+    if (auto m = QRegularExpression(
+            R"(.types\s*=\s*\{TYPE_([A-Z_]+)\s*,\s*TYPE_([A-Z_]+)\})")
+            .match(block); m.hasMatch())
+    {
+        out.type1 = typeMap.value("TYPE_" + m.captured(1),
+                                  prettify(m.captured(1)));
+        out.type2 = typeMap.value("TYPE_" + m.captured(2),
+                                  prettify(m.captured(2)));
     }
 
-    if (auto m = QRegularExpression(R"(.abilities\s*=\s*\{ABILITY_([A-Z_]+)\s*,\s*ABILITY_([A-Z_]+)(?:\s*,\s*ABILITY_([A-Z_]+))?)").match(block); m.hasMatch()) {
-        out.ability1 = abilityMap.value("ABILITY_" + m.captured(1), prettify(m.captured(1)));
-        out.ability2 = abilityMap.value("ABILITY_" + m.captured(2), prettify(m.captured(2)));
-        out.abilityHidden = m.captured(3).isEmpty() ? "-" : abilityMap.value("ABILITY_" + m.captured(3), prettify(m.captured(3)));
+    if (auto m = QRegularExpression(
+            R"(.abilities\s*=\s*\{ABILITY_([A-Z_]+)\s*,\s*ABILITY_([A-Z_]+)(?:\s*,\s*ABILITY_([A-Z_]+))?\})")
+            .match(block); m.hasMatch())
+    {
+        out.ability1 = abilityMap.value("ABILITY_" + m.captured(1),
+                                        prettify(m.captured(1)));
+        out.ability2 = abilityMap.value("ABILITY_" + m.captured(2),
+                                        prettify(m.captured(2)));
+        out.abilityHidden = m.captured(3).isEmpty()
+                           ? "-"
+                           : abilityMap.value("ABILITY_" + m.captured(3),
+                                              prettify(m.captured(3)));
     }
 
-    if (auto m = QRegularExpression(R"(.eggGroups\s*=\s*\{EGG_GROUP_([A-Z_]+)\s*,\s*EGG_GROUP_([A-Z_]+)\})").match(block); m.hasMatch()) {
-        out.eggGroup1 = eggMap.value("EGG_GROUP_" + m.captured(1), prettify(m.captured(1)));
-        out.eggGroup2 = eggMap.value("EGG_GROUP_" + m.captured(2), prettify(m.captured(2)));
+    if (auto m = QRegularExpression(
+            R"(.eggGroups\s*=\s*\{EGG_GROUP_([A-Z_]+)\s*,\s*EGG_GROUP_([A-Z_]+)\})")
+            .match(block); m.hasMatch())
+    {
+        out.eggGroup1 = eggMap.value("EGG_GROUP_" + m.captured(1),
+                                     prettify(m.captured(1)));
+        out.eggGroup2 = eggMap.value("EGG_GROUP_" + m.captured(2),
+                                     prettify(m.captured(2)));
     }
 
-    if (auto m = QRegularExpression(R"(.growthRate\s*=\s*GROWTH_([A-Z_]+))").match(block); m.hasMatch()) {
-        out.growthRate = growthMap.value("GROWTH_" + m.captured(1), prettify(m.captured(1)));
+    if (auto m = QRegularExpression(
+            R"(.growthRate\s*=\s*GROWTH_([A-Z_]+))")
+            .match(block); m.hasMatch())
+    {
+        out.growthRate = growthMap.value("GROWTH_" + m.captured(1),
+                                         prettify(m.captured(1)));
     }
 
-    if (auto m = QRegularExpression(R"(.genderRatio\s*=\s*([A-Z_()%\.0-9]+))").match(block); m.hasMatch()) {
+    if (auto m = QRegularExpression(
+            R"(.genderRatio\s*=\s*([A-Z_()%\.0-9]+))")
+            .match(block); m.hasMatch())
+    {
         QString raw = m.captured(1).trimmed();
         if (raw.startsWith("PERCENT_FEMALE")) {
             int l = raw.indexOf('('), r = raw.indexOf(')');

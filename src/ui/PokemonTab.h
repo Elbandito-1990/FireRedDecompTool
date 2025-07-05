@@ -5,16 +5,13 @@
 #include <QString>
 #include <QMap>
 #include <QList>
-#include <QSlider>    // ✅ Gender slider
-#include <QLineEdit>  // ✅ Decimal ratio display
+#include <QSlider>
+#include <QLineEdit>
 
 class QComboBox;
 class QSpinBox;
 class QLabel;
 
-/* ──────────────────────────────────────────
-   Simple struct to hold parsed data
-   ────────────────────────────────────────── */
 struct PokemonInfo
 {
     int     baseHP        = 0;
@@ -40,11 +37,12 @@ struct PokemonInfo
     QString ability1;
     QString ability2;
     QString abilityHidden;
+
+    int     eggCycles     = 0;  // new
+
+    // you may also want to store steps in the data model, but here we compute on-the-fly
 };
 
-/* ──────────────────────────────────────────
-   Main QWidget for the Pokémon tab
-   ────────────────────────────────────────── */
 class PokemonTab : public QWidget
 {
     Q_OBJECT
@@ -55,7 +53,6 @@ private slots:
     void onSpeciesChanged(int index);
 
 private:
-    /* helpers */
     void loadConstants();
     void loadSpeciesList();
     bool loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &outInfo);
@@ -63,10 +60,8 @@ private:
     void populateUI(const PokemonInfo &info);
     void loadSprites(const QString &speciesMacro);
 
-    /* persistent data */
     QString path;
 
-    /* maps for constants → prettified strings */
     QMap<QString, QString> typeMap;
     QMap<QString, QString> abilityMap;
     QMap<QString, QString> growthMap;
@@ -74,13 +69,12 @@ private:
 
     QList<QString> speciesMacroList;
 
-    /* widgets */
     QComboBox *speciesCombo;
 
     QLabel *spriteLabelFront;
     QLabel *spriteLabelBack;
-    QLabel *spriteLabelIcon;  // NEW: icon.png display
-    QLabel *spriteLabelFootprint;  // NEW: footprint.png display
+    QLabel *spriteLabelIcon;
+    QLabel *spriteLabelFootprint;
 
     QSpinBox *hpSpin;
     QSpinBox *atkSpin;
@@ -98,15 +92,19 @@ private:
 
     QComboBox *growthCombo;
 
-    QSlider    *genderSlider;         // ✅ Visual slider
-    QLineEdit  *genderDecimalField;   // ✅ Decimal value (e.g. 12.5)
+    QSlider   *genderSlider;
+    QLineEdit *genderDecimalField;
 
     QComboBox *egg1Combo;
     QComboBox *egg2Combo;
 
-    QSpinBox *catchRateSpin;
-    QSpinBox *expYieldSpin;
-    QSpinBox *friendshipSpin;
+    QSpinBox  *catchRateSpin;
+    QSpinBox  *expYieldSpin;
+    QSpinBox  *friendshipSpin;
+
+    QSpinBox  *eggCycleSpin;   // existing
+    QLineEdit *stepsField;     // ← declare it here
+
 };
 
 #endif // POKEMONTAB_H
