@@ -29,6 +29,7 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     QLabel *pathLabel = new QLabel("Project Path: " + path, this);
     pathLabel->setStyleSheet("padding-left: 10px; padding-top: 5px;");
 
+    // ─── Left Column (Summary) ───────────────────────────────
     auto makeStatSpin = [this]() {
         QSpinBox *s = new QSpinBox(this);
         s->setRange(1, 255);
@@ -128,7 +129,7 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
 
-    // ─── Left Column (Summary) ───────────────────────────────
+    // Left widget layout
     QWidget *leftWidget = new QWidget(this);
     QVBoxLayout *leftLayout = new QVBoxLayout(leftWidget);
     leftLayout->setContentsMargins(10, 10, 10, 0);
@@ -239,15 +240,17 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     QVBoxLayout *rightLayout = new QVBoxLayout(rightWidget);
     rightLayout->setContentsMargins(10, 10, 10, 0);
 
-    // Project path at very top
+    // Project path
     rightLayout->addWidget(pathLabel);
     rightLayout->addSpacing(8);
 
-    // Pokémon Name 🆕
+    // Pokémon Name Field
     {
         QLabel *nameLabel = new QLabel("Pokémon Name:", this);
         nameField = new QLineEdit(this);
-        nameField->setReadOnly(true);
+        nameField->setReadOnly(false);
+        connect(nameField, &QLineEdit::editingFinished,
+                this, &PokemonTab::onNameEdited);
         rightLayout->addWidget(nameLabel);
         rightLayout->addWidget(nameField);
         rightLayout->addSpacing(8);
@@ -325,6 +328,7 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     rightLayout->addStretch();
     root->addWidget(rightWidget, 1);
 
+    // Initial population
     loadSpeciesList();
 }
 
@@ -339,12 +343,65 @@ void PokemonTab::onSpeciesChanged(int index)
         return;
     }
 
-    const QString macro = speciesMacroList.at(index - 1);
+    currentSpecies = speciesMacroList.at(index - 1);
+
     PokemonInfo info;
-    if (loadSpeciesInfo(macro, info)) {
+    if (loadSpeciesInfo(currentSpecies, info)) {
         populateUI(info);
-        loadSprites(macro);
+        loadSprites(currentSpecies);
     }
+}
+
+void PokemonTab::onNameEdited()
+{
+    QString newName = nameField->text().trimmed();
+    if (newName.isEmpty() || currentSpecies.isEmpty())
+        return;
+
+    if (!saveSpeciesName(currentSpecies, newName)) {
+        // handle error (e.g. message box)
+    }
+}
+
+bool PokemonTab::saveSpeciesName(const QString &speciesMacro,
+                                 const QString &newName)
+{
+    const QString filePath = path + "/src/data/text/species_names.h";
+    QFile f(filePath);
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
+        return false;
+
+    QStringList lines;
+    QTextStream in(&f);
+    while (!in.atEnd())
+        lines << in.readLine();
+    f.close();
+
+    QRegularExpression rx(
+        "\\[SPECIES_" + QRegularExpression::escape(speciesMacro) +
+        "\\]\\s*=\\s+_\\(\"([^\"]*)\"\\)");
+
+    bool replaced = false;
+    for (int i = 0; i < lines.size(); ++i) {
+        auto m = rx.match(lines[i]);
+        if (m.hasMatch()) {
+            QString prefix = lines[i].section("_(\"", 0, 0) + "_(\"";
+            lines[i] = prefix + newName + "\"),";
+            replaced = true;
+            break;
+        }
+    }
+
+    if (!replaced)
+        return false;
+
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+        return false;
+    QTextStream out(&f);
+    for (const QString &L : lines)
+        out << L << "\n";
+    f.close();
+    return true;
 }
 
 void PokemonTab::loadSprites(const QString &speciesMacro)
@@ -360,8 +417,7 @@ void PokemonTab::loadSprites(const QString &speciesMacro)
     if (QFile::exists(frontPath)) {
         QPixmap pix(frontPath);
         spriteLabelFront->setPixmap(pix.scaled(
-            spriteLabelFront->size(),
-            Qt::KeepAspectRatio,
+            spriteLabelFront->size(), Qt::KeepAspectRatio,
             Qt::SmoothTransformation));
     } else {
         spriteLabelFront->clear();
@@ -370,8 +426,7 @@ void PokemonTab::loadSprites(const QString &speciesMacro)
     if (QFile::exists(backPath)) {
         QPixmap pix(backPath);
         spriteLabelBack->setPixmap(pix.scaled(
-            spriteLabelBack->size(),
-            Qt::KeepAspectRatio,
+            spriteLabelBack->size(), Qt::KeepAspectRatio,
             Qt::SmoothTransformation));
     } else {
         spriteLabelBack->clear();
@@ -380,8 +435,7 @@ void PokemonTab::loadSprites(const QString &speciesMacro)
     if (QFile::exists(iconPath)) {
         QPixmap pix(iconPath);
         spriteLabelIcon->setPixmap(pix.scaled(
-            spriteLabelIcon->size(),
-            Qt::KeepAspectRatio,
+            spriteLabelIcon->size(), Qt::KeepAspectRatio,
             Qt::SmoothTransformation));
     } else {
         spriteLabelIcon->clear();
@@ -390,8 +444,7 @@ void PokemonTab::loadSprites(const QString &speciesMacro)
     if (QFile::exists(footprintPath)) {
         QPixmap pix(footprintPath);
         spriteLabelFootprint->setPixmap(pix.scaled(
-            spriteLabelFootprint->size(),
-            Qt::KeepAspectRatio,
+            spriteLabelFootprint->size(), Qt::KeepAspectRatio,
             Qt::SmoothTransformation));
     } else {
         spriteLabelFootprint->clear();
@@ -400,12 +453,10 @@ void PokemonTab::loadSprites(const QString &speciesMacro)
 
 void PokemonTab::populateUI(const PokemonInfo &i)
 {
-    // Pokémon Name
-    if (!i.displayName.isEmpty())
-        nameField->setText(i.displayName);
-    else
-        nameField->clear();
+    // Name
+    nameField->setText(i.displayName);
 
+    // Stats
     hpSpin ->setValue(i.baseHP);
     atkSpin->setValue(i.baseAttack);
     defSpin->setValue(i.baseDefense);
@@ -413,15 +464,17 @@ void PokemonTab::populateUI(const PokemonInfo &i)
     spdSpin->setValue(i.baseSpDefense);
     speSpin->setValue(i.baseSpeed);
 
+    // Typing
     type1Combo->setCurrentText(i.type1);
     type2Combo->setCurrentText(i.type2);
 
+    // Abilities
     ability1Combo     ->setCurrentText(i.ability1);
     ability2Combo     ->setCurrentText(i.ability2);
     abilityHiddenCombo->setCurrentText(i.abilityHidden);
 
+    // Growth / Gender
     growthCombo->setCurrentText(i.growthRate);
-
     bool ok = false;
     double percent = i.genderRatio.split('%').first().toDouble(&ok);
     if (ok) {
@@ -434,13 +487,16 @@ void PokemonTab::populateUI(const PokemonInfo &i)
         genderSlider->setToolTip("-");
     }
 
+    // Breeding
     egg1Combo->setCurrentText(i.eggGroup1);
     egg2Combo->setCurrentText(i.eggGroup2);
 
+    // Catch / EXP / Friendship
     catchRateSpin ->setValue(i.catchRate);
     expYieldSpin  ->setValue(i.expYield);
     friendshipSpin->setValue(i.friendship);
 
+    // Egg cycles & steps
     eggCycleSpin->setValue(i.eggCycles);
     stepsField->setText(QString::number(i.eggCycles * 256));
 }
@@ -484,10 +540,10 @@ void PokemonTab::loadConstants()
     const QString abilFile = path + "/include/constants/abilities.h";
     QFile f2(abilFile);
     if (f2.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&f2);
+        QTextStream in2(&f2);
         QRegularExpression rx("#define\\s+ABILITY_([A-Z_]+)\\s+\\d+");
-        while (!in.atEnd()) {
-            QString line = in.readLine();
+        while (!in2.atEnd()) {
+            QString line = in2.readLine();
             if (auto m = rx.match(line); m.hasMatch())
                 abilityMap.insert("ABILITY_" + m.captured(1), prettify(m.captured(1)));
         }
@@ -519,28 +575,29 @@ void PokemonTab::loadSpeciesList()
 
 bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
 {
-    // Load the in-game display name from species_names.h
-    {
-        const QString nameFile = path + "/src/data/text/species_names.h";
-        QFile fName(nameFile);
-        if (fName.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            QTextStream inName(&fName);
-            QRegularExpression rxName(
-                "\\[SPECIES_" + QRegularExpression::escape(speciesMacro) +
-                "\\]\\s*=\\s+_\\(\"([A-Z0-9 \\-\\.']+)\"\\)");
-            while (!inName.atEnd()) {
-                QString line = inName.readLine();
-                auto m = rxName.match(line);
-                if (m.hasMatch()) {
-                    out.displayName = m.captured(1);
-                    break;
-                }
+    // — load the in-game name
+    const QString nameFile = path + "/src/data/text/species_names.h";
+    QFile fName(nameFile);
+    if (fName.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&fName);
+
+        // capture anything up to the next quote:
+        QRegularExpression rxName(
+          "\\[SPECIES_" + QRegularExpression::escape(speciesMacro) +
+          "\\]\\s*=\\s+_\\(\"([^\"]+)\"\\)");
+
+        while (!in.atEnd()) {
+            QString line = in.readLine();
+            auto m = rxName.match(line);
+            if (m.hasMatch()) {
+                out.displayName = m.captured(1);
+                break;
             }
-            fName.close();
         }
+        fName.close();
     }
 
-    // Now fall back to existing species_info parsing
+    // Now parse species_info
     const QString file = path + "/src/data/pokemon/species_info.h";
     QFile f(file);
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
@@ -548,7 +605,7 @@ bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
     QTextStream in(&f);
     QString header = "[SPECIES_" + speciesMacro + "]";
     bool grab = false;
-    int braces = 0;
+    int  braces = 0;
     QString block;
 
     while (!in.atEnd()) {
@@ -559,10 +616,7 @@ bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
         }
         block += line + '\n';
         if (line.contains('{')) ++braces;
-        if (line.contains('}')) {
-            --braces;
-            if (!braces) break;
-        }
+        if (line.contains('}')) { --braces; if (!braces) break; }
     }
     f.close();
     if (block.isEmpty()) return false;

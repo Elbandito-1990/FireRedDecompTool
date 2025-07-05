@@ -40,27 +40,34 @@ struct PokemonInfo
 
     int     eggCycles     = 0;
 
-    QString displayName; // 🆕 Added for actual name from species_names.h
+    QString displayName;    // actual in-game species name
 };
 
 class PokemonTab : public QWidget
 {
     Q_OBJECT
+
 public:
     explicit PokemonTab(const QString &projectPath, QWidget *parent = nullptr);
 
 private slots:
     void onSpeciesChanged(int index);
+    void onNameEdited();     // fires when nameField editing is finished
 
 private:
+    bool saveSpeciesName(const QString &speciesMacro,
+                         const QString &newName);
+
     void loadConstants();
     void loadSpeciesList();
-    bool loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &outInfo);
+    bool loadSpeciesInfo(const QString &speciesMacro,
+                         PokemonInfo &outInfo);
     QString prettify(const QString &rawMacro);
     void populateUI(const PokemonInfo &info);
     void loadSprites(const QString &speciesMacro);
 
     QString path;
+    QString currentSpecies;  // holds SPECIES_<XYZ> of the current selection
 
     QMap<QString, QString> typeMap;
     QMap<QString, QString> abilityMap;
@@ -70,18 +77,19 @@ private:
     QList<QString> speciesMacroList;
 
     QComboBox *speciesCombo;
+    QLineEdit *nameField;    // editable field for Pokémon name
 
-    QLabel *spriteLabelFront;
-    QLabel *spriteLabelBack;
-    QLabel *spriteLabelIcon;
-    QLabel *spriteLabelFootprint;
+    QLabel    *spriteLabelFront;
+    QLabel    *spriteLabelBack;
+    QLabel    *spriteLabelIcon;
+    QLabel    *spriteLabelFootprint;
 
-    QSpinBox *hpSpin;
-    QSpinBox *atkSpin;
-    QSpinBox *defSpin;
-    QSpinBox *spaSpin;
-    QSpinBox *spdSpin;
-    QSpinBox *speSpin;
+    QSpinBox  *hpSpin;
+    QSpinBox  *atkSpin;
+    QSpinBox  *defSpin;
+    QSpinBox  *spaSpin;
+    QSpinBox  *spdSpin;
+    QSpinBox  *speSpin;
 
     QComboBox *type1Combo;
     QComboBox *type2Combo;
@@ -104,8 +112,6 @@ private:
 
     QSpinBox  *eggCycleSpin;
     QLineEdit *stepsField;
-
-    QLineEdit *nameField; // 🆕 Added for displaying actual species name
 };
 
 #endif // POKEMONTAB_H
