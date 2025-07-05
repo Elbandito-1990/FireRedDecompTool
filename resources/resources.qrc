@@ -1,0 +1,7 @@
+<RCC>
+  <qresource prefix="/resources">
+    <file>Icon.ico</file>
+    <file>background1.png</file>
+    <file>bulbasaur.png</file>
+  </qresource>
+</RCC>
