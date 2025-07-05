@@ -38,9 +38,9 @@ struct PokemonInfo
     QString ability2;
     QString abilityHidden;
 
-    int     eggCycles     = 0;  // new
+    int     eggCycles     = 0;
 
-    // you may also want to store steps in the data model, but here we compute on-the-fly
+    QString displayName; // 🆕 Added for actual name from species_names.h
 };
 
 class PokemonTab : public QWidget
@@ -102,9 +102,10 @@ private:
     QSpinBox  *expYieldSpin;
     QSpinBox  *friendshipSpin;
 
-    QSpinBox  *eggCycleSpin;   // existing
-    QLineEdit *stepsField;     // ← declare it here
+    QSpinBox  *eggCycleSpin;
+    QLineEdit *stepsField;
 
+    QLineEdit *nameField; // 🆕 Added for displaying actual species name
 };
 
 #endif // POKEMONTAB_H

@@ -133,7 +133,6 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     QVBoxLayout *leftLayout = new QVBoxLayout(leftWidget);
     leftLayout->setContentsMargins(10, 10, 10, 0);
 
-    // Species selector at the very top
     leftLayout->addWidget(speciesCombo);
     leftLayout->addSpacing(8);
 
@@ -232,10 +231,7 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
         leftLayout->addLayout(abRow2);
     }
 
-    // Push content up
     leftLayout->addStretch();
-
-    // Add left widget to the root
     root->addWidget(leftWidget, 2);
 
     // ─── Right Column (Details) ────────────────────────────
@@ -246,6 +242,16 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     // Project path at very top
     rightLayout->addWidget(pathLabel);
     rightLayout->addSpacing(8);
+
+    // Pokémon Name 🆕
+    {
+        QLabel *nameLabel = new QLabel("Pokémon Name:", this);
+        nameField = new QLineEdit(this);
+        nameField->setReadOnly(true);
+        rightLayout->addWidget(nameLabel);
+        rightLayout->addWidget(nameField);
+        rightLayout->addSpacing(8);
+    }
 
     // Gender
     {
@@ -317,7 +323,6 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     }
 
     rightLayout->addStretch();
-
     root->addWidget(rightWidget, 1);
 
     loadSpeciesList();
@@ -395,6 +400,12 @@ void PokemonTab::loadSprites(const QString &speciesMacro)
 
 void PokemonTab::populateUI(const PokemonInfo &i)
 {
+    // Pokémon Name
+    if (!i.displayName.isEmpty())
+        nameField->setText(i.displayName);
+    else
+        nameField->clear();
+
     hpSpin ->setValue(i.baseHP);
     atkSpin->setValue(i.baseAttack);
     defSpin->setValue(i.baseDefense);
@@ -503,10 +514,33 @@ void PokemonTab::loadSpeciesList()
         speciesMacroList << macro;
         speciesCombo->addItem(prettify(macro));
     }
+    f.close();
 }
 
 bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
 {
+    // Load the in-game display name from species_names.h
+    {
+        const QString nameFile = path + "/src/data/text/species_names.h";
+        QFile fName(nameFile);
+        if (fName.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream inName(&fName);
+            QRegularExpression rxName(
+                "\\[SPECIES_" + QRegularExpression::escape(speciesMacro) +
+                "\\]\\s*=\\s+_\\(\"([A-Z0-9 \\-\\.']+)\"\\)");
+            while (!inName.atEnd()) {
+                QString line = inName.readLine();
+                auto m = rxName.match(line);
+                if (m.hasMatch()) {
+                    out.displayName = m.captured(1);
+                    break;
+                }
+            }
+            fName.close();
+        }
+    }
+
+    // Now fall back to existing species_info parsing
     const QString file = path + "/src/data/pokemon/species_info.h";
     QFile f(file);
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
@@ -514,7 +548,7 @@ bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
     QTextStream in(&f);
     QString header = "[SPECIES_" + speciesMacro + "]";
     bool grab = false;
-    int  braces = 0;
+    int braces = 0;
     QString block;
 
     while (!in.atEnd()) {
@@ -525,7 +559,10 @@ bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
         }
         block += line + '\n';
         if (line.contains('{')) ++braces;
-        if (line.contains('}')) { --braces; if (!braces) break; }
+        if (line.contains('}')) {
+            --braces;
+            if (!braces) break;
+        }
     }
     f.close();
     if (block.isEmpty()) return false;
