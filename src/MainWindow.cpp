@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 #include "ui/HomeTab.h"
 #include "ui/PokemonTab.h"
+#include "ui/PokedexTab.h"
 #include <QIcon>
 #include <QTabWidget>
 
@@ -12,13 +13,14 @@ MainWindow::MainWindow(QWidget *parent)
     resize(800, 600);
 
     tabWidget->addTab(new HomeTab(this), "Home");
-    // Do NOT add Pokémon tab here — it will be added after path is set
+    // Pokémon and Pokedex tabs will be added after project path is set
 }
 
 void MainWindow::setProjectPath(const QString &path) {
     projectPath = path;
 }
 
-void MainWindow::addPokemonTab() {
+void MainWindow::initializeTabs() {
     tabWidget->addTab(new PokemonTab(projectPath, this), "Pokémon");
+    tabWidget->addTab(new PokedexTab(projectPath, this), "Pokedex");
 }

@@ -10,7 +10,7 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     void setProjectPath(const QString &path);
-    void addPokemonTab();
+    void initializeTabs();  // <-- Moved to public
 
 private:
     QTabWidget *tabWidget;

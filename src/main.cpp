@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
         mainWin.setWindowTitle("FireRed Decomp Tool - " + path);
 
         // Add Pokémon tab after path is set
-        mainWin.addPokemonTab();
+        mainWin.initializeTabs();
 
         mainWin.show();
         startup.close();
