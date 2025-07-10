@@ -14,7 +14,14 @@
 #include <QPixmap>
 #include <QAbstractSpinBox>
 #include <QWidget>
+#include <QRadioButton>
+#include <QPainter>
+#include <QImage>
+#include <QColor>
 
+//------------------------------------------------------------------------------
+// Constructor
+//------------------------------------------------------------------------------
 PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     : QWidget(parent), path(projectPath)
 {
@@ -137,7 +144,7 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     leftLayout->addWidget(speciesCombo);
     leftLayout->addSpacing(8);
 
-    // Sprites
+    // Sprites section
     {
         QLabel *h = new QLabel("Sprites", this);
         h->setAlignment(Qt::AlignCenter);
@@ -158,6 +165,20 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
         spriteGrid->addWidget(new QLabel("Back", this),      3, 1, Qt::AlignCenter);
 
         leftLayout->addLayout(spriteGrid);
+
+        // Shiny toggle radio buttons
+        normalRadio = new QRadioButton("Normal", this);
+        shinyRadio  = new QRadioButton("Shiny", this);
+        normalRadio->setChecked(true);
+
+        QHBoxLayout *variantToggle = new QHBoxLayout;
+        variantToggle->setAlignment(Qt::AlignCenter);
+        variantToggle->addWidget(normalRadio);
+        variantToggle->addWidget(shinyRadio);
+        leftLayout->addLayout(variantToggle);
+
+        connect(normalRadio, &QRadioButton::toggled, this, &PokemonTab::updateSpriteVariant);
+        connect(shinyRadio,  &QRadioButton::toggled, this, &PokemonTab::updateSpriteVariant);
     }
 
     // Base Stats
@@ -332,6 +353,10 @@ PokemonTab::PokemonTab(const QString &projectPath, QWidget *parent)
     loadSpeciesList();
 }
 
+//------------------------------------------------------------------------------
+// Slots & Logic
+//------------------------------------------------------------------------------
+
 void PokemonTab::onSpeciesChanged(int index)
 {
     if (index <= 0 || index > speciesMacroList.size()) {
@@ -359,7 +384,7 @@ void PokemonTab::onNameEdited()
         return;
 
     if (!saveSpeciesName(currentSpecies, newName)) {
-        // handle error (e.g. message box)
+        // handle error
     }
 }
 
@@ -402,53 +427,6 @@ bool PokemonTab::saveSpeciesName(const QString &speciesMacro,
         out << L << "\n";
     f.close();
     return true;
-}
-
-void PokemonTab::loadSprites(const QString &speciesMacro)
-{
-    const QString name   = speciesMacro.toLower();
-    const QString folder = path + "/graphics/pokemon/" + name + "/";
-
-    const QString frontPath     = folder + "front.png";
-    const QString backPath      = folder + "back.png";
-    const QString iconPath      = folder + "icon.png";
-    const QString footprintPath = folder + "footprint.png";
-
-    if (QFile::exists(frontPath)) {
-        QPixmap pix(frontPath);
-        spriteLabelFront->setPixmap(pix.scaled(
-            spriteLabelFront->size(), Qt::KeepAspectRatio,
-            Qt::SmoothTransformation));
-    } else {
-        spriteLabelFront->clear();
-    }
-
-    if (QFile::exists(backPath)) {
-        QPixmap pix(backPath);
-        spriteLabelBack->setPixmap(pix.scaled(
-            spriteLabelBack->size(), Qt::KeepAspectRatio,
-            Qt::SmoothTransformation));
-    } else {
-        spriteLabelBack->clear();
-    }
-
-    if (QFile::exists(iconPath)) {
-        QPixmap pix(iconPath);
-        spriteLabelIcon->setPixmap(pix.scaled(
-            spriteLabelIcon->size(), Qt::KeepAspectRatio,
-            Qt::SmoothTransformation));
-    } else {
-        spriteLabelIcon->clear();
-    }
-
-    if (QFile::exists(footprintPath)) {
-        QPixmap pix(footprintPath);
-        spriteLabelFootprint->setPixmap(pix.scaled(
-            spriteLabelFootprint->size(), Qt::KeepAspectRatio,
-            Qt::SmoothTransformation));
-    } else {
-        spriteLabelFootprint->clear();
-    }
 }
 
 void PokemonTab::populateUI(const PokemonInfo &i)
@@ -581,7 +559,6 @@ bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
     if (fName.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream in(&fName);
 
-        // capture anything up to the next quote:
         QRegularExpression rxName(
           "\\[SPECIES_" + QRegularExpression::escape(speciesMacro) +
           "\\]\\s*=\\s+_\\(\"([^\"]+)\"\\)");
@@ -696,3 +673,197 @@ bool PokemonTab::loadSpeciesInfo(const QString &speciesMacro, PokemonInfo &out)
 
     return true;
 }
+
+//------------------------------------------------------------------------------
+// Original PNG loader overridden by palette when available
+//------------------------------------------------------------------------------
+
+void PokemonTab::loadSprites(const QString &speciesMacro)
+{
+    const QString name   = speciesMacro.toLower();
+    const QString folder = path + "/graphics/pokemon/" + name + "/";
+
+    const QString frontPath     = folder + "front.png";
+    const QString backPath      = folder + "back.png";
+    const QString iconPath      = folder + "icon.png";
+    const QString footprintPath = folder + "footprint.png";
+
+    if (QFile::exists(frontPath)) {
+        QPixmap pix(frontPath);
+        spriteLabelFront->setPixmap(pix.scaled(
+            spriteLabelFront->size(), Qt::KeepAspectRatio,
+            Qt::SmoothTransformation));
+    } else {
+        spriteLabelFront->clear();
+    }
+
+    if (QFile::exists(backPath)) {
+        QPixmap pix(backPath);
+        spriteLabelBack->setPixmap(pix.scaled(
+            spriteLabelBack->size(), Qt::KeepAspectRatio,
+            Qt::SmoothTransformation));
+    } else {
+        spriteLabelBack->clear();
+    }
+
+    if (QFile::exists(iconPath)) {
+        QPixmap pix(iconPath);
+        spriteLabelIcon->setPixmap(pix.scaled(
+            spriteLabelIcon->size(), Qt::KeepAspectRatio,
+            Qt::SmoothTransformation));
+    } else {
+        spriteLabelIcon->clear();
+    }
+
+    if (QFile::exists(footprintPath)) {
+        QPixmap pix(footprintPath);
+        spriteLabelFootprint->setPixmap(pix.scaled(
+            spriteLabelFootprint->size(), Qt::KeepAspectRatio,
+            Qt::SmoothTransformation));
+    } else {
+        spriteLabelFootprint->clear();
+    }
+
+    // override front.png if .4bpp + palette exist
+    updateSpriteVariant();
+}
+
+//------------------------------------------------------------------------------
+// Update front sprite using 4bpp + palette, aligned to PNG dimensions
+//------------------------------------------------------------------------------
+
+void PokemonTab::updateSpriteVariant()
+{
+    if (currentSpecies.isEmpty()) return;
+
+    // base folder path
+    QString base = path + "/graphics/pokemon/" + currentSpecies.toLower() + "/";
+    QVector<QColor> palette =
+        parsePalFile(base +
+                     (normalRadio->isChecked() ? "normal.pal" : "shiny.pal"));
+
+    // loop over front and back
+    for (const QString &side : { "front", "back" }) {
+        QLabel *lbl = (side == "front")
+                      ? spriteLabelFront
+                      : spriteLabelBack;
+
+        // try raw 4bpp data
+        QString gfxPath = base + side + ".4bpp";
+        QByteArray gfx  = readFile(gfxPath);
+
+        // fallback to PNG if missing
+        if (gfx.isEmpty() || palette.isEmpty()) {
+            QString pngPath = base + side + ".png";
+            if (QFile::exists(pngPath)) {
+                QPixmap px(pngPath);
+                lbl->setPixmap(px.scaled(
+                    lbl->size(),
+                    Qt::KeepAspectRatio,
+                    Qt::SmoothTransformation));
+            } else {
+                lbl->clear();
+            }
+            continue;
+        }
+
+        // render aligned to the PNG’s dimensions
+        QImage img = render4bppSprite(gfx,
+                                      palette,
+                                      base + side + ".png");
+        if (img.isNull()) {
+            lbl->clear();
+        } else {
+            lbl->setPixmap(QPixmap::fromImage(
+                img.scaled(
+                    lbl->size(),
+                    Qt::KeepAspectRatio,
+                    Qt::FastTransformation)));
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+// File I/O & palette parsing
+//------------------------------------------------------------------------------
+
+QByteArray PokemonTab::readFile(const QString &path)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) return {};
+    return f.readAll();
+}
+
+QVector<QColor> PokemonTab::parsePalFile(const QString &palPath)
+{
+    QVector<QColor> palette;
+    QFile file(palPath);
+    if (!file.open(QIODevice::ReadOnly)) return palette;
+
+    QByteArray data = file.readAll();
+    if (!data.startsWith("JASC-PAL")) return palette;
+
+    auto lines = data.split('\n');
+    for (int i = 3; i < lines.size(); ++i) {
+        auto parts = lines[i].trimmed().split(' ');
+        if (parts.size() == 3) {
+            palette.append(QColor(parts[0].toInt(),
+                                  parts[1].toInt(),
+                                  parts[2].toInt()));
+        }
+    }
+    return palette;
+}
+
+//------------------------------------------------------------------------------
+// Render 4bpp data using PNG dimensions for exact alignment
+//------------------------------------------------------------------------------
+
+QImage PokemonTab::render4bppSprite(const QByteArray &data,
+                                    const QVector<QColor> &palette,
+                                    const QString &pngPath)
+{
+    const int tileSize = 8;
+
+    QImage ref(pngPath);
+    if (ref.isNull()) return QImage();
+
+    int spriteW     = ref.width();
+    int spriteH     = ref.height();
+    int tilesPerRow = spriteW / tileSize;
+    int rows        = spriteH / tileSize;
+    int tileCount   = data.size() / 32;
+
+    if (tilesPerRow * rows != tileCount) {
+        return QImage();
+    }
+
+    QImage img(spriteW, spriteH, QImage::Format_ARGB32);
+    img.fill(Qt::transparent);
+
+    for (int t = 0; t < tileCount; ++t) {
+        int row = t / tilesPerRow;
+        int col = t % tilesPerRow;
+        for (int y = 0; y < tileSize; ++y) {
+            for (int x = 0; x < tileSize; ++x) {
+                int idx   = y * tileSize + x;
+                int bIdx  = t * 32 + (idx / 2);
+                quint8 b  = static_cast<quint8>(data[bIdx]);
+                int ci    = (idx & 1) ? ((b & 0xF0) >> 4) : (b & 0x0F);
+                if (ci > 0 && ci < palette.size()) {
+                    img.setPixelColor(col*tileSize + x,
+                                      row*tileSize + y,
+                                      palette[ci]);
+                }
+            }
+        }
+    }
+
+    return img;
+}
+
+//------------------------------------------------------------------------------
+// Remaining original methods: populateUI, prettify, loadConstants,
+// loadSpeciesList, loadSpeciesInfo
+// These are unchanged from your original file.
+//------------------------------------------------------------------------------

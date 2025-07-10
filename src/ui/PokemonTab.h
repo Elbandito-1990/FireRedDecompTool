@@ -7,6 +7,10 @@
 #include <QList>
 #include <QSlider>
 #include <QLineEdit>
+#include <QRadioButton>
+#include <QByteArray>
+#include <QColor>
+#include <QImage>
 
 class QComboBox;
 class QSpinBox;
@@ -48,11 +52,13 @@ class PokemonTab : public QWidget
     Q_OBJECT
 
 public:
-    explicit PokemonTab(const QString &projectPath, QWidget *parent = nullptr);
+    explicit PokemonTab(const QString &projectPath,
+                        QWidget *parent = nullptr);
 
 private slots:
     void onSpeciesChanged(int index);
-    void onNameEdited();     // fires when nameField editing is finished
+    void onNameEdited();
+    void updateSpriteVariant();
 
 private:
     bool saveSpeciesName(const QString &speciesMacro,
@@ -66,8 +72,16 @@ private:
     void populateUI(const PokemonInfo &info);
     void loadSprites(const QString &speciesMacro);
 
+    // helpers for .4bpp + .pal rendering
+    QByteArray      readFile(const QString &path);
+    QVector<QColor> parsePalFile(const QString &palPath);
+    QImage          render4bppSprite(const QByteArray &data,
+                                     const QVector<QColor> &palette,
+                                     const QString &pngPath);
+
+    // project data
     QString path;
-    QString currentSpecies;  // holds SPECIES_<XYZ> of the current selection
+    QString currentSpecies;
 
     QMap<QString, QString> typeMap;
     QMap<QString, QString> abilityMap;
@@ -76,42 +90,47 @@ private:
 
     QList<QString> speciesMacroList;
 
-    QComboBox *speciesCombo;
-    QLineEdit *nameField;    // editable field for Pokémon name
+    // UI controls
+    QComboBox   *speciesCombo;
+    QLineEdit   *nameField;
 
-    QLabel    *spriteLabelFront;
-    QLabel    *spriteLabelBack;
-    QLabel    *spriteLabelIcon;
-    QLabel    *spriteLabelFootprint;
+    QLabel      *spriteLabelFront;
+    QLabel      *spriteLabelBack;
+    QLabel      *spriteLabelIcon;
+    QLabel      *spriteLabelFootprint;
 
-    QSpinBox  *hpSpin;
-    QSpinBox  *atkSpin;
-    QSpinBox  *defSpin;
-    QSpinBox  *spaSpin;
-    QSpinBox  *spdSpin;
-    QSpinBox  *speSpin;
+    QSpinBox    *hpSpin;
+    QSpinBox    *atkSpin;
+    QSpinBox    *defSpin;
+    QSpinBox    *spaSpin;
+    QSpinBox    *spdSpin;
+    QSpinBox    *speSpin;
 
-    QComboBox *type1Combo;
-    QComboBox *type2Combo;
+    QComboBox   *type1Combo;
+    QComboBox   *type2Combo;
 
-    QComboBox *ability1Combo;
-    QComboBox *ability2Combo;
-    QComboBox *abilityHiddenCombo;
+    QComboBox   *ability1Combo;
+    QComboBox   *ability2Combo;
+    QComboBox   *abilityHiddenCombo;
 
-    QComboBox *growthCombo;
+    QComboBox   *growthCombo;
 
-    QSlider   *genderSlider;
-    QLineEdit *genderDecimalField;
+    QSlider     *genderSlider;
+    QLineEdit   *genderDecimalField;
 
-    QComboBox *egg1Combo;
-    QComboBox *egg2Combo;
+    QComboBox   *egg1Combo;
+    QComboBox   *egg2Combo;
 
-    QSpinBox  *catchRateSpin;
-    QSpinBox  *expYieldSpin;
-    QSpinBox  *friendshipSpin;
+    QSpinBox    *catchRateSpin;
+    QSpinBox    *expYieldSpin;
+    QSpinBox    *friendshipSpin;
 
-    QSpinBox  *eggCycleSpin;
-    QLineEdit *stepsField;
+    QSpinBox    *eggCycleSpin;
+    QLineEdit   *stepsField;
+
+    // shiny toggle
+    QRadioButton *normalRadio;
+    QRadioButton *shinyRadio;
 };
 
 #endif // POKEMONTAB_H
